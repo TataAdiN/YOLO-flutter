@@ -138,7 +138,7 @@ class _YoloImageScreenState extends State<YoloImageScreen> {
           fit: StackFit.expand,
           children: [
             imageFile != null ? Image.file(imageFile!) : const SizedBox(),
-            ...displayYOLODetectionOverImage(MediaQuery.of(context).size),
+            ...displayYOLODetectionOverImage(size),
           ],
         ),
       ),

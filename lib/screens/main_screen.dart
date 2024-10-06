@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:yolo_flutter/screens/yolo_image_screen.dart';
+import 'package:yolo_flutter/screens/yolo_live_screen.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key, required this.title});
@@ -65,7 +66,12 @@ class _MainScreenState extends State<MainScreen> {
                   ),
                 ),
               ),
-              onPressed: () {},
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) {
+                  return const YoloLiveScreen();
+                }),
+              ),
               child: const Text("Live Camera"),
             ),
           ],
