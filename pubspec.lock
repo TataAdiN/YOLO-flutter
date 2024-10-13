@@ -187,14 +187,6 @@ packages:
     description: flutter
     source: sdk
     version: "0.0.0"
-  flutter_vision:
-    dependency: "direct main"
-    description:
-      name: flutter_vision
-      sha256: ef1765d992ce39998c25a9d4e2eae7c8e5c4d3fc1f31742a829476fd6758ba6f
-      url: "https://pub.dev"
-    source: hosted
-    version: "1.1.4"
   flutter_web_plugins:
     dependency: transitive
     description: flutter
@@ -353,7 +345,7 @@ packages:
     source: hosted
     version: "1.0.6"
   path:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: path
       sha256: "087ce49c3f0dc39180befefc60fdb4acd8f8620e5682fe2476afd0b3688bb4af"
@@ -361,7 +353,7 @@ packages:
     source: hosted
     version: "1.9.0"
   path_provider:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: path_provider
       sha256: fec0d61223fba3154d87759e3cc27fe2c8dc498f6386c6d6fc80d1afdd1bf378
@@ -372,10 +364,10 @@ packages:
     dependency: transitive
     description:
       name: path_provider_android
-      sha256: f7544c346a0742aee1450f9e5c0f5269d7c602b9c95fdbcd9fb8f5b1df13b1cc
+      sha256: c464428172cb986b758c6d1724c603097febb8fb855aa265aeecc9280c294d4a
       url: "https://pub.dev"
     source: hosted
-    version: "2.2.11"
+    version: "2.2.12"
   path_provider_foundation:
     dependency: transitive
     description:
@@ -432,14 +424,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.1.8"
-  quiver:
-    dependency: transitive
-    description:
-      name: quiver
-      sha256: ea0b925899e64ecdfbf9c7becb60d5b50e706ade44a85b2363be2a22d88117d2
-      url: "https://pub.dev"
-    source: hosted
-    version: "3.2.2"
   sky_engine:
     dependency: transitive
     description: flutter
@@ -501,14 +485,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.7.2"
-  tflite_flutter:
-    dependency: "direct main"
-    description:
-      name: tflite_flutter
-      sha256: "48e6fde2ad97162bb66a16a142f4c4698add9e8cd397ce9d1cc7451b55537ac1"
-      url: "https://pub.dev"
-    source: hosted
-    version: "0.11.0"
   typed_data:
     dependency: transitive
     description:
@@ -517,6 +493,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.3.2"
+  ultralytics_yolo:
+    dependency: "direct main"
+    description:
+      name: ultralytics_yolo
+      sha256: "7048420530b0f15a4f87d501dcef24799510950dea4363871ea66fb45b9da907"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.0.3"
   vector_math:
     dependency: transitive
     description:

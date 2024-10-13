@@ -1,186 +1,129 @@
-import 'package:camera/camera.dart';
+import 'dart:io' as io;
+
 import 'package:flutter/material.dart';
-import 'package:flutter_vision/flutter_vision.dart';
+import 'package:path/path.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:flutter/services.dart';
+import 'package:ultralytics_yolo/ultralytics_yolo.dart';
+import 'package:ultralytics_yolo/yolo_model.dart';
 
 class YoloLiveScreen extends StatefulWidget {
   const YoloLiveScreen({super.key});
 
   @override
-  State<YoloLiveScreen> createState() => _YoloLiveScreenState();
+  State<YoloLiveScreen> createState() => _YoloLiveState();
 }
 
-class _YoloLiveScreenState extends State<YoloLiveScreen>
-    with WidgetsBindingObserver {
-  FlutterVision vision = FlutterVision();
-  late CameraController controller;
-  late List<Map<String, dynamic>> yoloResults;
-  CameraImage? cameraImage;
-  bool isLoaded = false;
-  bool isDetecting = false;
-
-  @override
-  void initState() {
-    super.initState();
-    init();
-  }
-
-  Future<void> init() async {
-    var cameras = await availableCameras();
-    controller = CameraController(cameras.first, ResolutionPreset.high,
-        imageFormatGroup: ImageFormatGroup.yuv420);
-    controller.initialize().then((value) {
-      loadYoloModel().then((value) {
-        setState(() {
-          isLoaded = true;
-          isDetecting = false;
-          yoloResults = [];
-        });
-      });
-    });
-  }
-
-  @override
-  void dispose() async {
-    super.dispose();
-    controller.dispose();
-  }
+class _YoloLiveState extends State<YoloLiveScreen> {
+  final controller = UltralyticsYoloCameraController();
 
   @override
   Widget build(BuildContext context) {
-    final Size size = MediaQuery.of(context).size;
-    if (!isLoaded) {
-      return const Scaffold(
-        body: Center(
-          child: Text("Model not loaded, waiting for it"),
+    return MaterialApp(
+      home: Scaffold(
+        body: FutureBuilder<ObjectDetector>(
+          future: _initObjectDetectorWithLocalModel(),
+          builder: (context, snapshot) {
+            final predictor = snapshot.data;
+
+            return predictor == null
+                ? Container()
+                : Stack(
+                    children: [
+                      UltralyticsYoloCameraPreview(
+                        controller: controller,
+                        predictor: predictor,
+                        onCameraCreated: () {
+                          predictor.loadModel(useGpu: true);
+                        },
+                        boundingBoxesColorList: const [Colors.green],
+                      ),
+                      StreamBuilder<double?>(
+                        stream: predictor.inferenceTime,
+                        builder: (context, snapshot) {
+                          final inferenceTime = snapshot.data;
+
+                          return StreamBuilder<double?>(
+                            stream: predictor.fpsRate,
+                            builder: (context, snapshot) {
+                              final fpsRate = snapshot.data;
+
+                              return Times(
+                                inferenceTime: inferenceTime,
+                                fpsRate: fpsRate,
+                              );
+                            },
+                          );
+                        },
+                      ),
+                    ],
+                  );
+          },
         ),
-      );
-    }
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        AspectRatio(
-          aspectRatio: controller.value.aspectRatio,
-          child: CameraPreview(
-            controller,
-          ),
+        floatingActionButton: FloatingActionButton(
+          child: const Icon(Icons.abc),
+          onPressed: () {
+            controller.toggleLensDirection();
+          },
         ),
-        ...displayBoxesAroundRecognizedObjects(size),
-        Positioned(
-          bottom: 75,
-          width: MediaQuery.of(context).size.width,
-          child: Container(
-            height: 80,
-            width: 80,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(
-                  width: 5, color: Colors.white, style: BorderStyle.solid),
-            ),
-            child: isDetecting
-                ? IconButton(
-                    onPressed: () async {
-                      stopDetection();
-                    },
-                    icon: const Icon(
-                      Icons.stop,
-                      color: Colors.red,
-                    ),
-                    iconSize: 50,
-                  )
-                : IconButton(
-                    onPressed: () async {
-                      await startDetection();
-                    },
-                    icon: const Icon(
-                      Icons.play_arrow,
-                      color: Colors.white,
-                    ),
-                    iconSize: 50,
-                  ),
-          ),
-        ),
-      ],
+      ),
     );
   }
 
-  Future<void> loadYoloModel() async {
-    await vision.loadYoloModel(
-        labels: 'assets/labels.txt',
-        modelPath: 'assets/yolov8n.tflite',
-        modelVersion: "yolov8",
-        numThreads: 2,
-        useGpu: true);
-    setState(() {
-      isLoaded = true;
-    });
-  }
-
-  Future<void> yoloOnFrame(CameraImage cameraImage) async {
-    final result = await vision.yoloOnFrame(
-      bytesList: cameraImage.planes.map((plane) => plane.bytes).toList(),
-      imageHeight: cameraImage.height,
-      imageWidth: cameraImage.width,
-      iouThreshold: 0.8,
-      confThreshold: 0.4,
-      classThreshold: 0.5,
+  Future<ObjectDetector> _initObjectDetectorWithLocalModel() async {
+    final modelPath = await _copy('assets/yolov8n_int8.tflite');
+    final metadataPath = await _copy('assets/yolov8n_meta.yaml');
+    final model = LocalYoloModel(
+      id: '',
+      task: Task.detect,
+      format: Format.tflite,
+      modelPath: modelPath,
+      metadataPath: metadataPath,
     );
-    if (result.isNotEmpty) {
-      setState(() {
-        yoloResults = result;
-      });
+
+    return ObjectDetector(model: model);
+  }
+
+  Future<String> _copy(String assetPath) async {
+    final path = '${(await getApplicationSupportDirectory()).path}/$assetPath';
+    await io.Directory(dirname(path)).create(recursive: true);
+    final file = io.File(path);
+    if (!await file.exists()) {
+      final byteData = await rootBundle.load(assetPath);
+      await file.writeAsBytes(byteData.buffer
+          .asUint8List(byteData.offsetInBytes, byteData.lengthInBytes));
     }
+    return file.path;
   }
+}
 
-  Future<void> startDetection() async {
-    setState(() {
-      isDetecting = true;
-    });
-    if (controller.value.isStreamingImages) {
-      return;
-    }
-    await controller.startImageStream((image) async {
-      if (isDetecting) {
-        cameraImage = image;
-        yoloOnFrame(image);
-      }
-    });
-  }
+class Times extends StatelessWidget {
+  const Times({
+    super.key,
+    required this.inferenceTime,
+    required this.fpsRate,
+  });
 
-  Future<void> stopDetection() async {
-    setState(() {
-      isDetecting = false;
-      yoloResults.clear();
-    });
-  }
+  final double? inferenceTime;
+  final double? fpsRate;
 
-  List<Widget> displayBoxesAroundRecognizedObjects(Size screen) {
-    if (yoloResults.isEmpty) return [];
-    double factorX = screen.width / (cameraImage?.height ?? 1);
-    double factorY = screen.height / (cameraImage?.width ?? 1);
-
-    Color colorPick = const Color.fromARGB(255, 50, 233, 30);
-
-    return yoloResults.map((result) {
-      return Positioned(
-        left: result["box"][0] * factorX,
-        top: result["box"][1] * factorY,
-        width: (result["box"][2] - result["box"][0]) * factorX,
-        height: (result["box"][3] - result["box"][1]) * factorY,
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Align(
+        alignment: Alignment.bottomCenter,
         child: Container(
-          decoration: BoxDecoration(
-            borderRadius: const BorderRadius.all(Radius.circular(10.0)),
-            border: Border.all(color: Colors.pink, width: 2.0),
-          ),
-          child: Text(
-            "${result['tag']} ${(result['box'][4] * 100).toStringAsFixed(0)}%",
-            style: TextStyle(
-              background: Paint()..color = colorPick,
-              color: Colors.white,
-              fontSize: 18.0,
+            margin: const EdgeInsets.all(20),
+            padding: const EdgeInsets.all(20),
+            decoration: const BoxDecoration(
+              borderRadius: BorderRadius.all(Radius.circular(10)),
+              color: Colors.black54,
             ),
-          ),
-        ),
-      );
-    }).toList();
+            child: Text(
+              '${(inferenceTime ?? 0).toStringAsFixed(1)} ms  -  ${(fpsRate ?? 0).toStringAsFixed(1)} FPS',
+              style: const TextStyle(color: Colors.white70),
+            )),
+      ),
+    );
   }
 }

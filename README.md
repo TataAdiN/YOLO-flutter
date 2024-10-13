@@ -1,2 +1,2 @@
 # YOLO-flutter
-flutter computer vision using YOLO
+flutter Object Detector and Classify using Ultralytics YOLOV8N  

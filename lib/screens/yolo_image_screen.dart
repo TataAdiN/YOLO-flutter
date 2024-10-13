@@ -1,9 +1,12 @@
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:flutter_vision/flutter_vision.dart';
+import 'package:path/path.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:ultralytics_yolo/predict/detect/detect.dart';
+import 'package:ultralytics_yolo/yolo_model.dart';
 
 class YoloImageScreen extends StatefulWidget {
   const YoloImageScreen({super.key});
@@ -13,32 +16,33 @@ class YoloImageScreen extends StatefulWidget {
 }
 
 class _YoloImageScreenState extends State<YoloImageScreen> {
-  FlutterVision vision = FlutterVision();
+  late LocalYoloModel _model;
   File? imageFile;
   int imageHeight = 1;
   int imageWidth = 1;
   bool yoloModelLoaded = false;
-  List<Map<String, dynamic>> yoloResults = [];
+  List<DetectedObject> yoloResults = [];
 
   @override
   void initState() {
     super.initState();
-    _loadYoloModel().then((value) {
-      setState(() {
-        yoloModelLoaded = true;
-      });
-    });
+    _loadYoloModel();
+  }
+
+  @override
+  void dispose() async {
+    super.dispose();
   }
 
   Future<void> _loadYoloModel() async {
-    await vision.loadYoloModel(
-      labels: 'assets/labels.txt',
-      modelPath: 'assets/yolov8n.tflite',
-      modelVersion: "yolov8",
-      quantization: false,
-      numThreads: 2,
-      useGpu: true,
-    );
+    final modelPath = await _copy('assets/yolov8n_int8.tflite');
+    final metadata = await _copy('assets/yolov8n_meta.yaml');
+    _model = LocalYoloModel(
+        id: '',
+        task: Task.detect,
+        format: Format.tflite,
+        modelPath: modelPath,
+        metadataPath: metadata);
     setState(() {
       yoloModelLoaded = true;
     });
@@ -59,54 +63,52 @@ class _YoloImageScreenState extends State<YoloImageScreen> {
 
   _yoloOnImage() async {
     yoloResults.clear();
+    final objectDetector = ObjectDetector(model: _model);
+    String? model = await objectDetector.loadModel();
+    List<DetectedObject?>? detectedObject =
+        await objectDetector.detect(imagePath: imageFile!.path);
+    List<DetectedObject> ultralysticResults = [];
+    for (var result in detectedObject!) {
+      ultralysticResults.add(result!);
+    }
     Uint8List byte = await imageFile!.readAsBytes();
     final image = await decodeImageFromList(byte);
-    final result = await vision.yoloOnImage(
-      bytesList: byte,
-      imageHeight: image.height,
-      imageWidth: image.width,
-      iouThreshold: 0.8,
-      confThreshold: 0.4,
-      classThreshold: 0.5,
-    );
-    if (result.isNotEmpty) {
-      setState(() {
-        imageHeight = image.height;
-        imageWidth = image.width;
-        yoloResults = result;
-      });
-    }
+    setState(() {
+      imageHeight = image.height;
+      imageWidth = image.width;
+      yoloResults = ultralysticResults;
+    });
   }
 
-  List<Widget> displayYOLODetectionOverImage(Size screen) {
+  List<Widget> displayYOLODetectionOverImage(MediaQueryData mediaQuery) {
     if (yoloResults.isEmpty) return [];
 
-    double factorX = screen.width / (imageWidth);
+    double factorX = mediaQuery.size.width / (imageWidth);
     double imgRatio = imageWidth / imageHeight;
     double newWidth = imageWidth * factorX;
     double newHeight = newWidth / imgRatio;
-    double factorY = newHeight / (imageHeight);
 
     // fix miss 50 pixel when using Stack Fit.Expand
-    double statusBarHeight = MediaQuery.of(context).padding.top;
+    double statusBarHeight = mediaQuery.padding.top;
     double appBarHeight = kToolbarHeight;
-    double availableHeight = screen.height - statusBarHeight - appBarHeight;
+    double availableHeight =
+        mediaQuery.size.height - statusBarHeight - appBarHeight;
     double paddingY = (availableHeight - newHeight) / 2;
 
     Color colorPick = const Color.fromARGB(255, 50, 233, 30);
     return yoloResults.map((result) {
       return Positioned(
-        left: result["box"][0] * factorX,
-        top: result["box"][1] * factorY + paddingY,
-        width: (result["box"][2] - result["box"][0]) * factorX,
-        height: (result["box"][3] - result["box"][1]) * factorY,
+        left: result.boundingBox.left,
+        top: result.boundingBox.top + paddingY,
+        width: result.boundingBox.right - result.boundingBox.left,
+        height: result.boundingBox.bottom - result.boundingBox.top,
         child: Container(
           decoration: BoxDecoration(
             borderRadius: const BorderRadius.all(Radius.circular(10.0)),
             border: Border.all(color: Colors.pink, width: 2.0),
           ),
           child: Text(
-            "${result['tag']} ${(result['box'][4] * 100).toStringAsFixed(0)}%",
+            "${result.label} ${(result.confidence * 100).toStringAsFixed(0)}%",
             style: TextStyle(
               background: Paint()..color = colorPick,
               color: Colors.white,
@@ -118,9 +120,21 @@ class _YoloImageScreenState extends State<YoloImageScreen> {
     }).toList();
   }
 
+  Future<String> _copy(String assetPath) async {
+    final path = '${(await getApplicationSupportDirectory()).path}/$assetPath';
+    await Directory(dirname(path)).create(recursive: true);
+    final file = File(path);
+    if (!await file.exists()) {
+      final byteData = await rootBundle.load(assetPath);
+      await file.writeAsBytes(byteData.buffer
+          .asUint8List(byteData.offsetInBytes, byteData.lengthInBytes));
+    }
+    return file.path;
+  }
+
   @override
   Widget build(BuildContext context) {
-    final Size size = MediaQuery.of(context).size;
+    final MediaQueryData mediaQuery = MediaQuery.of(context);
     if (!yoloModelLoaded) {
       return const Scaffold(
         body: Center(
@@ -138,7 +152,7 @@ class _YoloImageScreenState extends State<YoloImageScreen> {
           fit: StackFit.expand,
           children: [
             imageFile != null ? Image.file(imageFile!) : const SizedBox(),
-            ...displayYOLODetectionOverImage(size),
+            ...displayYOLODetectionOverImage(mediaQuery),
           ],
         ),
       ),
