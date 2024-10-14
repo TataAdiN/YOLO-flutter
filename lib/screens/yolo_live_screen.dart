@@ -25,7 +25,6 @@ class _YoloLiveState extends State<YoloLiveScreen> {
           future: _initObjectDetectorWithLocalModel(),
           builder: (context, snapshot) {
             final predictor = snapshot.data;
-
             return predictor == null
                 ? Container()
                 : Stack(
@@ -34,7 +33,9 @@ class _YoloLiveState extends State<YoloLiveScreen> {
                         controller: controller,
                         predictor: predictor,
                         onCameraCreated: () {
-                          predictor.loadModel(useGpu: true);
+                          predictor.loadModel(
+                            useGpu: true,
+                          );
                         },
                         boundingBoxesColorList: const [Colors.green],
                       ),
@@ -42,12 +43,10 @@ class _YoloLiveState extends State<YoloLiveScreen> {
                         stream: predictor.inferenceTime,
                         builder: (context, snapshot) {
                           final inferenceTime = snapshot.data;
-
                           return StreamBuilder<double?>(
                             stream: predictor.fpsRate,
                             builder: (context, snapshot) {
                               final fpsRate = snapshot.data;
-
                               return Times(
                                 inferenceTime: inferenceTime,
                                 fpsRate: fpsRate,
@@ -113,16 +112,19 @@ class Times extends StatelessWidget {
       child: Align(
         alignment: Alignment.bottomCenter,
         child: Container(
-            margin: const EdgeInsets.all(20),
-            padding: const EdgeInsets.all(20),
-            decoration: const BoxDecoration(
-              borderRadius: BorderRadius.all(Radius.circular(10)),
-              color: Colors.black54,
+          margin: const EdgeInsets.all(20),
+          padding: const EdgeInsets.all(20),
+          decoration: const BoxDecoration(
+            borderRadius: BorderRadius.all(
+              Radius.circular(10),
             ),
-            child: Text(
-              '${(inferenceTime ?? 0).toStringAsFixed(1)} ms  -  ${(fpsRate ?? 0).toStringAsFixed(1)} FPS',
-              style: const TextStyle(color: Colors.white70),
-            )),
+            color: Colors.black54,
+          ),
+          child: Text(
+            '${(inferenceTime ?? 0).toStringAsFixed(1)} ms  -  ${(fpsRate ?? 0).toStringAsFixed(1)} FPS',
+            style: const TextStyle(color: Colors.white70),
+          ),
+        ),
       ),
     );
   }

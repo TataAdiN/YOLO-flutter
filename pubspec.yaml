@@ -70,9 +70,6 @@ flutter:
   assets:
     - assets/yolov8n_meta.yaml
     - assets/yolov8n_int8.tflite
-    - assets/object_detection_meta.yaml
-    - assets/object_detection_float32.tflite
-    - assets/object_detection_float16.tflite
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/assets-and-images/#resolution-aware

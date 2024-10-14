@@ -5,8 +5,10 @@ import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path/path.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:ultralytics_yolo/predict/detect/detect.dart';
+import 'package:ultralytics_yolo/predict/detect/detected_object.dart';
 import 'package:ultralytics_yolo/yolo_model.dart';
+
+import '../ultralytics_patch/ultralytic_object_detector.dart';
 
 class YoloImageScreen extends StatefulWidget {
   const YoloImageScreen({super.key});
@@ -48,7 +50,7 @@ class _YoloImageScreenState extends State<YoloImageScreen> {
     });
   }
 
-  _onPickImage() async {
+  void _onPickImage() async {
     final ImagePicker picker = ImagePicker();
     final XFile? pickedFile = await picker.pickImage(
       source: ImageSource.gallery,
@@ -61,9 +63,9 @@ class _YoloImageScreenState extends State<YoloImageScreen> {
     }
   }
 
-  _yoloOnImage() async {
+  void _yoloOnImage() async {
     yoloResults.clear();
-    final objectDetector = ObjectDetector(model: _model);
+    final objectDetector = UltralyticObjectDetector(model: _model);
     String? model = await objectDetector.loadModel();
     List<DetectedObject?>? detectedObject =
         await objectDetector.detect(imagePath: imageFile!.path);
@@ -104,7 +106,9 @@ class _YoloImageScreenState extends State<YoloImageScreen> {
         height: result.boundingBox.bottom - result.boundingBox.top,
         child: Container(
           decoration: BoxDecoration(
-            borderRadius: const BorderRadius.all(Radius.circular(10.0)),
+            borderRadius: const BorderRadius.all(
+              Radius.circular(10.0),
+            ),
             border: Border.all(color: Colors.pink, width: 2.0),
           ),
           child: Text(
